@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-
+{-# LANGUAGE TupleSections #-}
 module Lets.OpticPolyLens (
   Lens(..)
 , getsetLaw
@@ -119,13 +119,13 @@ setsetLaw l a b1 b2 =
 --
 -- prop> let types = (x :: Int, y :: String) in modify sndL id (x, y) == (x, y)
 modify ::
-  Lens s t a b
+  Lens s t a b -- (a -> f b) -> s -> f t
   -> (a -> b)
   -> s
   -> t
-modify =
-  error "todo: modify"
-
+modify (Lens r) f =
+  getIdentity . r (Identity . f) 
+  
 -- | An alias for @modify@.
 (%~) ::
   Lens s t a b
@@ -149,12 +149,12 @@ infixr 4 %~
 --
 -- prop> let types = (x :: Int, y :: String) in set sndL (x, y) z == (sndL .~ z $ (x, y))
 (.~) ::
-  Lens s t a b
+  Lens s t a b -- (a -> f b) -> s -> f t
   -> b
   -> s
   -> t
-(.~) =
-  error "todo: (.~)"
+(.~) (Lens r) b =
+  getIdentity . r (const . Identity $ b)
 
 infixl 5 .~
 
@@ -174,8 +174,7 @@ fmodify ::
   -> (a -> f b)
   -> s
   -> f t 
-fmodify =
-  error "todo: fmodify"
+fmodify (Lens r) = r
 
 -- |
 --
@@ -190,8 +189,7 @@ fmodify =
   -> f b
   -> s
   -> f t
-(|=) =
-  error "todo: (|=)"
+(|=) (Lens r) fb = r (const fb)
 
 infixl 5 |=
 
@@ -206,9 +204,8 @@ infixl 5 |=
 --
 -- prop> let types = (x :: Int, y :: String) in setsetLaw fstL (x, y) z
 fstL ::
-  Lens (a, x) (b, x) a b
-fstL =
-  error "todo: fstL"
+  Lens (a, x) (b, x) a b -- forall f. (a -> f b) -> (a,x) -> f (b,x) 
+fstL = Lens $ \f (a,x) -> (,x) <$> f a
 
 -- |
 --
@@ -222,8 +219,7 @@ fstL =
 -- prop> let types = (x :: Int, y :: String) in setsetLaw sndL (x, y) z
 sndL ::
   Lens (x, a) (x, b) a b
-sndL =
-  error "todo: sndL"
+sndL = Lens $ \f (x,a) -> (x,) <$> f a
 
 -- |
 --
@@ -247,9 +243,9 @@ sndL =
 mapL ::
   Ord k =>
   k
-  -> Lens (Map k v) (Map k v) (Maybe v) (Maybe v)
-mapL =
-  error "todo: mapL"
+  -> Lens (Map k v) (Map k v) (Maybe v) (Maybe v) -- (Maybe v -> f (Maybe v)) -> Map k v -> f (Map k v)
+mapL k = Lens $ \f s ->
+  maybe (Map.delete k s) (\a -> Map.insert k a s) <$> f (Map.lookup k s)
 
 -- |
 --
@@ -274,8 +270,7 @@ setL ::
   Ord k =>
   k
   -> Lens (Set k) (Set k) Bool Bool
-setL =
-  error "todo: setL"
+setL k = Lens $ \f s -> bool (Set.delete k s) (Set.insert k s) <$> f (Set.member k s)
 
 -- |
 --
@@ -288,8 +283,7 @@ compose ::
   Lens s t a b
   -> Lens q r s t
   -> Lens q r a b
-compose =
-  error "todo: compose"
+compose (Lens r) (Lens r') = Lens (r' . r)
 
 -- | An alias for @compose@.
 (|.) ::
@@ -311,7 +305,7 @@ infixr 9 |.
 identity ::
   Lens a b a b
 identity =
-  error "todo: identity"
+  Lens ($)
 
 -- |
 --
@@ -324,9 +318,9 @@ product ::
   Lens s t a b
   -> Lens q r c d
   -> Lens (s, q) (t, r) (a, c) (b, d)
-product =
-  error "todo: product"
-
+product l l' = Lens $
+  \f (s,q) -> (\(b,d) -> (set l s b, set l' q d)) <$> f (get l s, get l' q)
+    
 -- | An alias for @product@.
 (***) ::
   Lens s t a b
@@ -354,9 +348,11 @@ choice ::
   Lens s t a b
   -> Lens q r a b
   -> Lens (Either s q) (Either t r) a b
-choice =
-  error "todo: choice"
-
+choice l l' = Lens $ \f e ->
+  case e of
+    Left s -> (Left . set l s) <$> f (get l s)
+    Right q -> (Right . set l' q) <$> f (get l' q)
+      
 -- | An alias for @choice@.
 (|||) ::
   Lens s t a b
@@ -450,7 +446,7 @@ getSuburb ::
   Person
   -> String
 getSuburb =
-  error "todo: getSuburb"
+  get $ suburbL |. addressL
 
 
 -- |
@@ -465,7 +461,7 @@ setStreet ::
   -> String
   -> Person
 setStreet =
-  error "todo: setStreet"
+  set $ streetL |. addressL
 
 -- |
 --
@@ -478,7 +474,7 @@ getAgeAndCountry ::
   (Person, Locality)
   -> (Int, String)
 getAgeAndCountry =
-  error "todo: getAgeAndCountry"
+  get $ ageL *** countryL
 
 -- |
 --
@@ -490,7 +486,7 @@ getAgeAndCountry =
 setCityAndLocality ::
   (Person, Address) -> (String, Locality) -> (Person, Address)
 setCityAndLocality =
-  error "todo: setCityAndLocality"
+  set $ (cityL |. localityL |. addressL) *** localityL
   
 -- |
 --

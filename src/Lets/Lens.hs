@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-
+{-# LANGUAGE TupleSections #-}
 module Lets.Lens (
   fmapT
 , over
@@ -73,7 +73,8 @@ module Lets.Lens (
 , intOrLengthEven
 ) where
 
-import Control.Applicative(Applicative((<*>), pure))
+import Control.Applicative(Applicative((<*>), pure), liftA2)
+import Data.Bifunctor (bimap, first, second)
 import Data.Char(toUpper)
 import Data.Foldable(Foldable(foldMap))
 import Data.Functor((<$>))
@@ -110,17 +111,17 @@ fmapT ::
   (a -> b)
   -> t a
   -> t b
-fmapT =
-  error "todo: fmapT"
+fmapT f = getIdentity . traverse (Identity . f) 
 
--- | Let's refactor out the call to @traverse@ as an argument to @fmapT@.
+-- | Let's factor out the call to @traverse@ as an argument to @fmapT@.
 over :: 
   ((a -> Identity b) -> s -> Identity t)
   -> (a -> b)
   -> s
   -> t
-over =
-  error "todo: over"
+over k f =
+  getIdentity . k (Identity . f) 
+
 
 -- | Here is @fmapT@ again, passing @traverse@ to @over@.
 fmapTAgain ::
@@ -128,8 +129,7 @@ fmapTAgain ::
   (a -> b)
   -> t a
   -> t b
-fmapTAgain =
-  error "todo: fmapTAgain"
+fmapTAgain = over traverse 
 
 -- | Let's create a type-alias for this type of function.
 type Set s t a b =
@@ -142,23 +142,20 @@ type Set s t a b =
 sets ::
   ((a -> b) -> s -> t)
   -> Set s t a b  
-sets =
-  error "todo: sets"
-
+sets k f =
+  Identity . k (getIdentity . f) 
+  
 mapped ::
   Functor f =>
   Set (f a) (f b) a b
-mapped =
-  error "todo: mapped"
-
+mapped = sets (<$>)
+  
 set ::
   Set s t a b
   -> s
   -> b
   -> t
-set =
-  error "todo: set"
-
+set k s b = over k (const b) s
 ----
 
 -- | Observe that @foldMap@ can be recovered from @traverse@ using @Const@.
@@ -169,17 +166,17 @@ foldMapT ::
   (a -> b)
   -> t a
   -> b
-foldMapT =
-  error "todo: foldMapT"
+foldMapT f =
+  getConst . traverse (Const . f) 
 
--- | Let's refactor out the call to @traverse@ as an argument to @foldMapT@.
+-- | Let's factor out the call to @traverse@ as an argument to @foldMapT@.
 foldMapOf ::
   ((a -> Const r b) -> s -> Const r t)
   -> (a -> r)
   -> s
   -> r
-foldMapOf =
-  error "todo: foldMapOf"
+foldMapOf k f =
+  getConst . k (Const . f)
 
 -- | Here is @foldMapT@ again, passing @traverse@ to @foldMapOf@.
 foldMapTAgain ::
@@ -188,7 +185,7 @@ foldMapTAgain ::
   -> t a
   -> b
 foldMapTAgain =
-  error "todo: foldMapTAgain"
+  foldMapOf traverse
 
 -- | Let's create a type-alias for this type of function.
 type Fold s t a b =
@@ -205,14 +202,16 @@ folds ::
   -> (a -> Const b a)
   -> s
   -> Const t s
-folds =
-  error "todo: folds"
+folds k f =
+  Const . k (getConst . f)
+
+  
 
 folded ::
   Foldable f =>
-  Fold (f a) (f a) a a
-folded =
-  error "todo: folded"
+  Fold (f a) (f a) a a -- (a -> Const r a) -> f a -> Const r (f a)
+folded f =
+  Const . foldMap (getConst . f) 
 
 ----
 
@@ -223,11 +222,12 @@ type Get r s a =
   -> Const r s
 
 get ::
-  Get a s a
+  Get a s a -- (a -> Const a a) -> s -> Const a s
   -> s
   -> a
-get =
-  error "todo: get"
+get f =
+  foldMapOf f id
+  
 
 ----
 
@@ -241,21 +241,22 @@ type Traversal s t a b =
 
 -- | Traverse both sides of a pair.
 both ::
-  Traversal (a, a) (b, b) a b
-both =
-  error "todo: both"
+  Traversal (a, a) (b, b) a b -- (a -> f b) -> (a, a) -> f (b, b)
+both k (a,a') =
+  liftA2 (,) (k a) (k a')
 
 -- | Traverse the left side of @Either@.
 traverseLeft ::
-  Traversal (Either a x) (Either b x) a b
-traverseLeft =
-  error "todo: traverseLeft"
+  Traversal (Either a x) (Either b x) a b -- (a -> f b) -> Either a x -> f (Either b x)
+traverseLeft k =
+  either (fmap Left . k) (pure . Right)
 
+    
 -- | Traverse the right side of @Either@.
 traverseRight ::
   Traversal (Either x a) (Either x b) a b
-traverseRight =
-  error "todo: traverseRight"
+traverseRight k =
+  either (pure . Left) (fmap Right . k)
 
 type Traversal' a b =
   Traversal a a b b
@@ -280,25 +281,24 @@ type Lens s t a b =
 type Prism s t a b =
   forall p f.
   (Choice p, Applicative f) =>
-  p a (f b)
+  p a (f b) -- dimap (b -> a) -> (c -> d) -> p a c -> p b d 
   -> p s (f t)
 
 _Left ::
   Prism (Either a x) (Either b x) a b
 _Left =
-  error "todo: _Left"
+  dimap id (either (fmap Left) (pure . Right)) . left
 
 _Right ::
   Prism (Either x a) (Either x b) a b 
 _Right =
-  error "todo: _Right"
+  dimap id (either (pure . Left) (fmap Right)) . right
 
 prism ::
   (b -> t)
   -> (s -> Either t a)
   -> Prism s t a b
-prism =
-  error "todo: prism"
+prism f g = undefined
 
 _Just ::
   Prism (Maybe a) (Maybe b) a b
@@ -341,12 +341,12 @@ type Prism' a b =
 --
 -- prop> let types = (x :: Int, y :: String) in modify sndL id (x, y) == (x, y)
 modify ::
-  Lens s t a b
+  Lens s t a b -- Functor f => (a -> f b) -> s -> f t
   -> (a -> b)
   -> s
   -> t
-modify _ _ _ =
-  error "todo: modify"
+modify k f =
+  getIdentity . k (Identity . f) 
 
 -- | An alias for @modify@.
 (%~) ::
@@ -375,8 +375,8 @@ infixr 4 %~
   -> b
   -> s
   -> t
-(.~) _ _ _ =
-  error "todo: (.~)"
+(.~) k b =
+ getIdentity . k (const (Identity b))
 
 infixl 5 .~
 
@@ -396,8 +396,7 @@ fmodify ::
   -> (a -> f b)
   -> s
   -> f t 
-fmodify _ _ _ =
-  error "todo: fmodify"
+fmodify = ($)
 
 -- |
 --
@@ -412,8 +411,7 @@ fmodify _ _ _ =
   -> f b
   -> s
   -> f t
-(|=) _ _ _ =
-  error "todo: (|=)"
+(|=) = flip (.) const
 
 infixl 5 |=
 
@@ -422,9 +420,8 @@ infixl 5 |=
 -- >>> modify fstL (*10) (3, "abc")
 -- (30,"abc")
 fstL ::
-  Lens (a, x) (b, x) a b
-fstL =
-  error "todo: fstL"
+  Lens (a, x) (b, x) a b -- (a -> f b) -> (a,x) -> f (b,x)
+fstL f (a,x) = (,x) <$> f a
 
 -- |
 --
@@ -432,8 +429,7 @@ fstL =
 -- (13,"abcdef")
 sndL ::
   Lens (x, a) (x, b) a b
-sndL =
-  error "todo: sndL"
+sndL f (x,a) = (x,) <$> f a
 
 -- |
 --
@@ -461,11 +457,11 @@ sndL =
 -- fromList [(1,'a'),(2,'b'),(3,'c'),(4,'d')]
 mapL ::
   Ord k =>
-  k
+  k -- (Maybe v -> f (Maybe v)) -> Map k v -> f (Map k v)
   -> Lens (Map k v) (Map k v) (Maybe v) (Maybe v)
-mapL =
-  error "todo: mapL"
-
+mapL k f m =
+ maybe (Map.delete k m) (\v -> Map.insert k v m) <$> f (Map.lookup k m)
+ 
 -- |
 --
 -- To work on `Set a`:
@@ -494,8 +490,8 @@ setL ::
   Ord k =>
   k
   -> Lens (Set.Set k) (Set.Set k) Bool Bool
-setL =
-  error "todo: setL"
+setL k f s =
+  bool (Set.delete k s) (Set.insert k s) <$> f (Set.member k s)
 
 -- |
 --
@@ -508,8 +504,7 @@ compose ::
   Lens s t a b
   -> Lens q r s t
   -> Lens q r a b
-compose _ _ =
-  error "todo: compose"
+compose = flip (.)
 
 -- | An alias for @compose@.
 (|.) ::
@@ -530,8 +525,7 @@ infixr 9 |.
 -- 4
 identity ::
   Lens a b a b
-identity =
-  error "todo: identity"
+identity = ($)
 
 -- |
 --
@@ -541,11 +535,12 @@ identity =
 -- >>> set (product fstL sndL) (("abc", 3), (4, "def")) ("ghi", "jkl")
 -- (("ghi",3),(4,"jkl"))
 product ::
-  Lens s t a b
-  -> Lens q r c d
-  -> Lens (s, q) (t, r) (a, c) (b, d)
-product _ _ =
-  error "todo: product"
+  Lens s t a b -- (a -> f b) -> s -> f t
+  -> Lens q r c d -- (c -> f d) -> q -> f r
+  -> Lens (s, q) (t, r) (a, c) (b, d) -- ((a,c) -> f (b,c)) -> (s,q) -> f (t,r)
+product l l' f (s,q) = error "same ol same ol"
+
+  
 
 -- | An alias for @product@.
 (***) ::
@@ -574,8 +569,7 @@ choice ::
   Lens s t a b
   -> Lens q r a b
   -> Lens (Either s q) (Either t r) a b
-choice _ _ =
-  error "todo: choice"
+choice l l' f esq = undefined
 
 -- | An alias for @choice@.
 (|||) ::
