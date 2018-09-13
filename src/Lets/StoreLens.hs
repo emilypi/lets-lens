@@ -56,7 +56,7 @@ import qualified Data.Set as Set(insert, delete, member)
 import Lets.Data(Store(Store), Person(Person), Locality(Locality), Address(Address), bool)
 import Prelude hiding (product)
 
--- 
+-- $setup 
 -- >>> import qualified Data.Map as Map(fromList)
 -- >>> import qualified Data.Set as Set(fromList)
 -- >>> import Data.Char(ord)
@@ -594,4 +594,4 @@ modifyCityUppercase ::
   Person
   -> Person
 modifyCityUppercase =
-  (cityL |. localityL |. addressL) %~ (fmap toUpper)1
+  (cityL |. localityL |. addressL) %~ (fmap toUpper) 
