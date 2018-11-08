@@ -101,7 +101,7 @@ setsetLaw ::
   -> s
   -> b
   -> b
-  -> Bool 
+  -> Bool
 setsetLaw l a b1 b2 =
   set l (set l a b1) b2 == set l a b2
 
@@ -124,8 +124,8 @@ modify ::
   -> s
   -> t
 modify (Lens r) f =
-  getIdentity . r (Identity . f) 
-  
+  getIdentity . r (Identity . f)
+
 -- | An alias for @modify@.
 (%~) ::
   Lens s t a b
@@ -173,7 +173,7 @@ fmodify ::
   Lens s t a b
   -> (a -> f b)
   -> s
-  -> f t 
+  -> f t
 fmodify (Lens r) = r
 
 -- |
@@ -204,7 +204,7 @@ infixl 5 |=
 --
 -- prop> let types = (x :: Int, y :: String) in setsetLaw fstL (x, y) z
 fstL ::
-  Lens (a, x) (b, x) a b -- forall f. (a -> f b) -> (a,x) -> f (b,x) 
+  Lens (a, x) (b, x) a b -- forall f. (a -> f b) -> (a,x) -> f (b,x)
 fstL = Lens $ \f (a,x) -> (,x) <$> f a
 
 -- |
@@ -320,7 +320,7 @@ product ::
   -> Lens (s, q) (t, r) (a, c) (b, d)
 product l l' = Lens $
   \f (s,q) -> (\(b,d) -> (set l s b, set l' q d)) <$> f (get l s, get l' q)
-    
+
 -- | An alias for @product@.
 (***) ::
   Lens s t a b
@@ -352,7 +352,7 @@ choice l l' = Lens $ \f e ->
   case e of
     Left s -> (Left . set l s) <$> f (get l s)
     Right q -> (Right . set l' q) <$> f (get l' q)
-      
+
 -- | An alias for @choice@.
 (|||) ::
   Lens s t a b
@@ -487,7 +487,7 @@ setCityAndLocality ::
   (Person, Address) -> (String, Locality) -> (Person, Address)
 setCityAndLocality =
   set $ (cityL |. localityL |. addressL) *** localityL
-  
+
 -- |
 --
 -- >>> getSuburbOrCity (Left maryAddress)
@@ -526,7 +526,7 @@ modifyCityUppercase ::
   Person
   -> Person
 modifyCityUppercase =
-  cityL |. localityL |. addressL %~ map toUpper
+  cityL |. localityL |. addressL %~ fmap toUpper
 
 -- |
 --

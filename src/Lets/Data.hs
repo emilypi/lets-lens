@@ -27,14 +27,14 @@ data Locality =
     String -- city
     String -- state
     String -- country
-  deriving (Eq, Show)  
+  deriving (Eq, Show)
 
 data Address =
   Address
     String -- street
     String -- suburb
     Locality
-  deriving (Eq, Show)  
+  deriving (Eq, Show)
 
 data Person =
   Person
@@ -111,7 +111,7 @@ data Store s a =
 
 data Const a b =
   Const {
-    getConst :: 
+    getConst ::
       a
   }
   deriving (Eq, Show)
@@ -126,7 +126,7 @@ instance Monoid a => Applicative (Const a) where
   Const f <*> Const a =
     Const (f `mappend` a)
 
-data Tagged a b = 
+data Tagged a b =
   Tagged {
     getTagged ::
       b
@@ -162,7 +162,7 @@ instance Applicative Identity where
 
 data AlongsideLeft f b a =
   AlongsideLeft {
-    getAlongsideLeft :: 
+    getAlongsideLeft ::
       f (a, b)
   }
 
@@ -172,7 +172,7 @@ instance Functor f => Functor (AlongsideLeft f b) where
 
 data AlongsideRight f a b =
   AlongsideRight {
-    getAlongsideRight :: 
+    getAlongsideRight ::
       f (a, b)
   }
 
