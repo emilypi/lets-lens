@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 module Lets.Lens (
   fmapT
 , over
@@ -310,21 +311,21 @@ _Just =
 _Nothing ::
   Prism (Maybe a) (Maybe a) () ()
 _Nothing =
-  prism (const Nothing) (maybe (Left Nothing) (const (Right ())))
+  prism (const Nothing) (maybe (Left Nothing) (\_ -> Right ()))
 
 setP ::
-  Prism s t a b
+  Prism s t a b -- p a (f b) -> p s (f t)
   -> s
-  -> Either t a
-setP _ _ =
-  error "todo: setP"
+  -> Either t a -- ((->) a Identity (Either a b)) -> ((->) s -> Identity (Either s t))
+setP p s = either Right Left $ p Left s
+
 
 getP ::
   Prism s t a b
   -> b
   -> t
-getP _ _ =
-  error "todo: getP"
+getP p =
+  getIdentity . getTagged . p . Tagged . Identity
 
 type Prism' a b =
   Prism a a b b
@@ -529,18 +530,19 @@ identity ::
   Lens a b a b
 identity = ($)
 
--- |
---
+
+
 -- >>> get (product fstL sndL) (("abc", 3), (4, "def"))
 -- ("abc","def")
---
+
 -- >>> set (product fstL sndL) (("abc", 3), (4, "def")) ("ghi", "jkl")
 -- (("ghi",3),(4,"jkl"))
 product ::
   Lens s t a b -- (a -> f b) -> s -> f t
   -> Lens q r c d -- (c -> f d) -> q -> f r
   -> Lens (s, q) (t, r) (a, c) (b, d) -- ((a,c) -> f (b,d)) -> (s,q) -> f (t,r)
-product l l' f (s,q) = undefined
+product l l' f (s,q) =
+  (\(b,d) -> (set l s b, set l' q d)) <$> f (get l s, get l s)
 
 -- | An alias for @product@.
 (***) ::
@@ -670,7 +672,7 @@ setStreet ::
 setStreet =
   set $ addressL . streetL
 
--- |
+--
 --
 -- >>> getAgeAndCountry (fred, maryLocality)
 -- (24,"Maristan")
@@ -683,12 +685,12 @@ getAgeAndCountry ::
 getAgeAndCountry =
   get $ ageL *** countryL
 
--- |
 --
--- >>> setCityAndLocality (fred, maryAddress) ("Some Other City", fredLocality)
+--
+-- >> setCityAndLocality (fred, maryAddress) ("Some Other City", fredLocality)
 -- (Person 24 "Fred" (Address "15 Fred St" "Fredville" (Locality "Some Other City" "New South Fred" "Fredalia")),Address "83 Mary Ln" "Maryland" (Locality "Fredmania" "New South Fred" "Fredalia"))
 --
--- >>> setCityAndLocality (mary, fredAddress) ("Some Other City", maryLocality)
+-- >> setCityAndLocality (mary, fredAddress) ("Some Other City", maryLocality)
 -- (Person 28 "Mary" (Address "83 Mary Ln" "Maryland" (Locality "Some Other City" "Western Mary" "Maristan")),Address "15 Fred St" "Fredville" (Locality "Mary Mary" "Western Mary" "Maristan"))
 setCityAndLocality ::
   (Person, Address) -> (String, Locality) -> (Person, Address)
@@ -785,15 +787,15 @@ intOrP = undefined
   --   seta (IntOrIsNot a) = Right a
   --   seta ior = Left ior
 
--- |
+--
 --
 -- >> over intOrP (even . length) (IntOrIsNot "abc")
 -- IntOrIsNot False
 --
--- >>> over intOrP (even . length) (IntOrIsNot "abcd")
+-- >> over intOrP (even . length) (IntOrIsNot "abcd")
 -- IntOrIsNot True
 --
--- >>> over intOrP (even . length) (IntOrIs 10)
+-- >> over intOrP (even . length) (IntOrIs 10)
 -- IntOrIs 10
 intOrLengthEven ::
   IntOr [a]

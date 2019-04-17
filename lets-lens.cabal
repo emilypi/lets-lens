@@ -11,7 +11,7 @@ category:             Education
 description:          Source code for exercises on the lens concept
 homepage:             https://github.com/data61/lets-lens
 bug-reports:          https://github.com/data61/lets-lens/issues
-cabal-version:        >= 1.10
+cabal-version:        >= 2.0
 build-type:           Simple
 extra-source-files:   changelog
 
@@ -25,9 +25,9 @@ flag                  small_base
 library
   default-language:   Haskell2010
 
-  build-depends:      base >= 4.8 && < 5
+  build-depends:      base >= 4.10 && < 5
                       , containers >= 0.4.0.0
-                      
+
   ghc-options:        -Wall
                       -fno-warn-unused-binds
                       -fno-warn-unused-do-bind
@@ -44,7 +44,7 @@ library
                       Lets.OpticPolyLens
                       Lets.Profunctor
                       Lets.StoreLens
-                      
+
 test-suite            doctests
   type:
                       exitcode-stdio-1.0
