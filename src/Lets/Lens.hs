@@ -226,8 +226,8 @@ get ::
   Get a s a -- (a -> Const a a) -> s -> Const a s
   -> s
   -> a
-get f =
-  foldMapOf f id
+get l =
+  foldMapOf l id
 
 
 ----
@@ -302,6 +302,9 @@ prism ::
 prism f g =
   dimap g (either pure (fmap f)) . right
 
+prism' :: (a -> s) -> (s -> Maybe a) -> Prism' s a
+prism' f g = prism f (\s -> maybe (Left s) Right $ g s)
+
 _Just ::
   Prism (Maybe a) (Maybe b) a b -- p a (f b) -> p (Maybe a) (f (Maybe b))
 _Just =
@@ -324,8 +327,12 @@ getP ::
   Prism s t a b
   -> b
   -> t
-getP p =
-  getIdentity . getTagged . p . Tagged . Identity
+getP p
+  = getIdentity
+  . getTagged
+  . p
+  . Tagged
+  . Identity
 
 type Prism' a b =
   Prism a a b b
@@ -541,8 +548,9 @@ product ::
   Lens s t a b -- (a -> f b) -> s -> f t
   -> Lens q r c d -- (c -> f d) -> q -> f r
   -> Lens (s, q) (t, r) (a, c) (b, d) -- ((a,c) -> f (b,d)) -> (s,q) -> f (t,r)
-product l l' f (s,q) =
-  (\(b,d) -> (set l s b, set l' q d)) <$> f (get l s, get l s)
+product l l' f (s,q)
+  = (\(b,d) -> (set l s b, set l' q d))
+  <$> f (foldMapOf l id s, foldMapOf l' id q)
 
 -- | An alias for @product@.
 (***) ::
@@ -762,7 +770,6 @@ traverseLocality f (Locality a b c) =
   Locality <$> f a <*> f b <*> f c
 
 
-
 -- |
 --
 -- >>> over intOrIntP (*10) (IntOrIs 3)
@@ -773,20 +780,14 @@ traverseLocality f (Locality a b c) =
 intOrIntP ::
   Prism' (IntOr a) Int -- p Int (f Int) -> p (IntOr a) (f (IntOr a))
 intOrIntP =
-  prism IntOrIs seta
-  where
-    seta (IntOrIs i) = Right i
-    seta ior = Left ior
+  prism IntOrIs $ \ior -> case ior of
+    IntOrIs i -> Right i
+    _ -> Left ior
 
 
 intOrP ::
-  Prism (IntOr a) (IntOr b) a b -- p a (f b) -> p (IntOr a) (f (IntOr b))
-intOrP = undefined
-  -- prism IntOrIsNot seta
-  -- where
-  --   seta (IntOrIsNot a) = Right a
-  --   seta ior = Left ior
-
+  Lens (IntOr a) (IntOr b) a b -- p a (f b) -> p (IntOr a) (f (IntOr b))
+intOrP f (IntOrIsNot a) = IntOrIsNot <$> f a
 --
 --
 -- >> over intOrP (even . length) (IntOrIsNot "abc")
@@ -801,4 +802,4 @@ intOrLengthEven ::
   IntOr [a]
   -> IntOr Bool
 intOrLengthEven =
-  over intOrP (even . length)
+  intOrP %~ even . length
